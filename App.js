@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 // import * as SQLite from 'expo-sqlite';
@@ -14,12 +14,11 @@ import Firebase from './Firebase';
 //const database = SQLite.openDatabase('quotes.db'); // wird auf dem Handy abgelegt
 
 
-
-
 export default function App() {
   const [index, setIndex] = useState(0);
   const [quotes, setQuotes] = useState([]);
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [isLoading, setLoading] = useState(true);
 
   useEffect(() => {
     // TODO Firebase.init();
@@ -102,6 +101,7 @@ export default function App() {
     // Zitat aus Firebase laden
     const quotesFromDB =  await Firebase.getQuotes();
     setQuotes(quotesFromDB);
+    setLoading(false);
 
     // AsyncStorage
     // let quotesFromDB = await AsyncStorage.getItem('QUOTES');
@@ -116,6 +116,16 @@ export default function App() {
     );
     */ 
   }
+
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size='large' color="#333" />
+      </View>
+    );
+  }
+
 
   let content = <Text style={styles.noQuotes}>Keine Zitate</Text>;
   if (quotes.length > 0) {
