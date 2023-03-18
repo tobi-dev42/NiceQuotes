@@ -3,20 +3,37 @@ import { StatusBar } from 'expo-status-bar';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 // import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SQLite from 'expo-sqlite';
 
 import BigButon from './BigButton';
 import IconButton from './IconButton';
 import Quote from './Quote';
 import NewQuote from './NewQuote';
 
+const database = SQLite.openDatabase('quotes.db'); // wird auf dem Handy abgelegt
+
+
+
+
 export default function App() {
   const [index, setIndex] = useState(0);
   const [quotes, setQuotes] = useState([]);
   const [showNewDialog, setShowNewDialog] = useState(false);
 
-  useEffect(() => { 
+  useEffect(() => {
+    initDB();
     loadQuotes();
   }, []); // [] = nur 1x -->  Ziate beim Start der App laden (1x beim Starten) 
+
+
+  function initDB() {
+    // Tabelle erstellen, wenn noch nciht vorhanden
+    database.transaction((tx) => 
+      tx.executeSql(
+        'CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY NOT NULL, text TEXT, author TEXT);'
+      )
+    );
+  }
 
   function addQuoteToList(text, author) {
       setShowNewDialog(false);
@@ -26,16 +43,20 @@ export default function App() {
       ];
       setQuotes(newQuotes); 
       setIndex(newQuotes.length - 1); 
-      saveQuotes(newQuotes);
+      saveQuotes(text, author, newQuotes);
   }
 
   function removeQuoteFromList() {
     const newQuotes = [...quotes];
+    const id = quotes[index].id;
+
     newQuotes.splice(index, 1); // löscht ab index 1 element
     setIndex(0);
     setQuotes(newQuotes);
-    
-    // saveQuotes(newQuotes); // Async Storage, speichern des gesamten strings
+
+    database.transaction((tx) => 
+      tx.executeSql('DELETE FROM quotes WHERE id=?', [id])
+    );
   }
 
   function deleteQuote() {
@@ -56,20 +77,30 @@ export default function App() {
     );
   }
 
-  function saveQuotes(newQuotes) {
+  function saveQuotes(text, author, newQuotes) {
     // AsyncStorage.setItem('QUOTES', JSON.stringify(newQuotes));
     // TODO: in SQLite seichern
+    console.log('RUN saveQuotes ');
+
+    database.transaction((tx) => 
+      tx.executeSql(
+        'INSERT INTO quotes (text, author) VALUES (?,?)',
+        [text, author],
+        (_, result) => { 
+          newQuotes[newQuotes.length -1].id = result.insertId;
+          setQuotes(newQuotes);
+        }
+      )
+    );
   }
 
   async function loadQuotes() {
     // let quotesFromDB = await AsyncStorage.getItem('QUOTES');
-    // TODO: in SQLite seichern
-    let quotesFromDB = null;
-    if (quotesFromDB !== null) {
-      quotesFromDB =  JSON.parse(quotesFromDB);
-      // --> beim erstenmaligen Laden der Komponente
-      setQuotes(quotesFromDB);
-    } 
+    database.transaction((tx) => 
+      tx.executeSql('SELECT * FROM quotes', [], (_, result) => {
+        setQuotes(result.rows._array);
+      })
+    ); 
   }
 
   let content = <Text style={styles.noQuotes}>Keine Zitate</Text>;
